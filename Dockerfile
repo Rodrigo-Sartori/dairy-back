@@ -1,23 +1,27 @@
-# Etapa 1: Build
-FROM gradle:8.8-jdk17 AS build
+# Etapa de build
+FROM gradle:8.7-jdk17 AS builder
 WORKDIR /app
 
-# Copia apenas os arquivos necessários para build
-COPY build.gradle settings.gradle gradlew ./
-COPY gradle ./gradle
-COPY src ./src
+COPY . .
 
-# Gera o jar
+# Dá permissão pro Gradle Wrapper
+RUN chmod +x gradlew
+
+# Compila o jar sem rodar testes
 RUN ./gradlew bootJar --no-daemon -x test
 
-# Etapa 2: Imagem final
-FROM eclipse-temurin:17-jdk
+# Etapa de runtime
+FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
 
-# Copia o jar da etapa de build
-COPY --from=build /app/build/libs/*.jar app.jar
-
+# Define a variável PORT pro Render
 ENV PORT=8080
+
+# Copia o jar gerado na etapa anterior
+COPY --from=builder /app/build/libs/*.jar app.jar
+
+# Expõe a porta pro Render
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Sobe a aplicação na porta do Render
+ENTRYPOINT ["java", "-Dserver.port=${PORT}", "-jar", "app.jar"]
